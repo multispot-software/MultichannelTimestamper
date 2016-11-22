@@ -1,0 +1,18 @@
+Compilation completed successfully.
+
+Device Utilization
+---------------------------
+Total Slices: 83.8% (12010 out of 14336)
+Slice Registers: 24.4% (7005 out of 28672)
+Slice LUTs: 76.6% (21977 out of 28672)
+Block RAMs: 16.7% (16 out of 96)
+
+Timing
+---------------------------
+MiteClk (Used by non-diagram components): 33.00 MHz (65.21 MHz maximum)
+40 MHz Onboard Clock: 40.02 MHz (191.42 MHz maximum)
+80MHz: 80.00 MHz (80.44 MHz maximum)
+
+Start Time: 12:17:26 PM
+End Time: 3:44:28 PM
+Total Time: 03:27:01

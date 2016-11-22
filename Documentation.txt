@@ -1,0 +1,121 @@
+LabView FPGA Burst Search
+-------------------------
+
+The main FPGA VI is fpga_8ch-Main.vi. This VI acquires the TTL pulse from 8
+channels and process them doing both time-stamping and burst search. The
+communication with the host computer takes place through two target-host
+communication FIFOs.
+
+A third FIFO is used to send simulated data from the host to the FPGA in order
+to debug the implementation.
+
+Time-stamping
+------------
+
+The main time-stamping subvi is fpga_channel_fifo. There are 8 of such subvi
+(one per channel) instantiated in fpga_8ch-Timestamping.vi. Each
+fpga_channel_fifo subvi has an associated detector/channel number that is
+passed as an input constant in fpga_8ch-Timestamping.vi.
+
+The fpga_scheduler subvi implements a 32 main clock counter (called Main Clock)
+and a 3-bit counter that increments every 2 clock cycles (called scheduler). It
+counts from 0 to 7 and then restart from 0.
+
+When the fpga_channel_fifo subvi receives a digital input pulse (boolean true)
+writes immediately the current 32-bit clock value in a local FIFO. The
+timestamp is then read from the FIFO only when the 3-bit scheduler value
+matches the channel number of a fpga_channel_fifo subvi. In particular, since
+the scheduler increments every two clock cycles, we always have 2 subsequent
+clock cycles with matching channel. The FIFO read happens during the first of
+such clock cycles.  When a timestamp is read from the FIFO the Data Available
+flag is set to true. This flag is therefore true only in the first of the two
+clock cycles.
+
+The fpga_MUX-poller subvi takes the timestamps (and Data Available flags) for
+all the 8 channels as input and routes a channel per time to the timestamp
+serial writer. The scheduling policy is round-robin: the channel selection is
+controlled by the 3-bit scheduler signal emitted by the Scheduler.vi subvi.
+Every channel is connected to the output for two clock cycles but the data is
+present only in the first clock cycle. The second clock cycle serves to give
+the serial writer time to write 2 values on the target/host communication FIFO:
+the channel number and the timestamp.
+
+Burst search
+------------
+
+The fpga_4ch-bursts_search subvi takes the 8ch timestamps and data available
+flags as input. Then it merges the matching donor and acceptor channels in a
+single stream of timestamps and data available flags. Therefore the channel
+number is reduced from 8 to 4. Every merged channel has an additional flag
+stating if the current timestamp comes from the donor channel or not, so no
+information is lost. The single channel timestamps stream and two flag signals
+are passed to the fpga_core_bursts_search subvi that performs the realtime
+burst search. 
+
+The fpga_core_bursts_search subvi takes also the the 3 burst search parameters
+as input: T, L, m. In the current implementation m is fixes to 3 and can not be
+changed. L and T can be changes at will. Furthermore fpga_core_bursts_search
+need to store some local variables that are bundled in a cluster and passed to
+fpga_4ch-bursts_search as feedback node. fpga_4ch-bursts_search bundles the 4
+feedback clusters of each channel in a single cluster and pass it to the
+fpga_8ch-Main.vi that connects the cluster as feedback variables to the
+single-cycles timed loop. Of all the burst search feedback variables only the
+prefill variable (the first bool in the cluster) needs a non-default
+initialization to TRUE.
+
+The fpga_core_bursts_search subvi outputs a 6-element cluster for each burst.
+The cluster fields are the burst available flag, burst start (in clock cycles),
+burst width (in clock cycles), burst size (number of ph), burst size donor
+(number of donor ph) and channel (that is set afterwards by the
+fpga_4ch-bursts_search subvi).
+
+The fpga_4ch-bursts_search subvi adds the channel information to the burst data
+and bundles the 4 outputs in a single cluster.
+
+The subsequent fpga_4ch_bursts_router.vi connects the channel that has a burst
+available. In the rare event that two channels have a burst available on the
+same clock cycle they are both discarded.
+
+Finally the fpga_burst_serial_writer writes sequentially the burst data to the
+target host communication FIFO.
+
+Burst Search Data Format
+------------------------
+The data for every single burst consist of 6 uint32 numbers sent sequentially 
+to the host computer through the FIFO named BurstDataFIFO.
+
+The 6 (32-bit) fields are the following:
+
+1: channel (channel number, flags and bursts counter)
+2: burst start (in clk cycles) [32-bit]
+3: burst width (in clk cycles) [32-bit]
+4: burst size (tot. num. of ph) [16-bit]
+5: burst size donor (num. of ph in the donor ch) [16-bit]
+6: T (burst search parameter, unit is 2^6 clk cycles) [16-bit]
+
+The fields indicated with [16-bit] use only the lowest 16-bit of the uint32 
+number (the highest 16 bits are always 0 and can be used in future to transfer 
+more informations). Ideally, a reading routine should AND the 16-bit fields with
+0x0000FFFF in order to be automatically compatible with future format changes.
+
+The field-1 contains the uint8 channel information in the 8 least significant 
+bits. The lowest 8 bit of the high 16bits contain an 8-bit burst counter that 
+can be used to check that no burst is lost in the FIFO communication.
+The highest 8 bit contains a constant watermark (0xF0) that signal the beginning 
+of the burst data. The following drawing illustrate the field-1 32-bit 
+composition (each uppercase char in the draw is 4 bits):
+
+    burst counter   8-bit ch number
+             \         /
+32-bit:  F0  NN   XX  CC
+         '----'   '----'
+          high     low
+         16-bit   16-bit
+
+ Legend:
+    CC: (uint8), ch number (currently the highest ch is 7, lowest 0)
+    NN: (uint8) bursts counter
+    F0: (uint8) constant bitfield indicating the beginning of burst data
+    XX: bits unused
+         
+NB: all numbers and bitfields are unsigned integers.
