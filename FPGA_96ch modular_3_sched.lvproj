@@ -4262,6 +4262,7 @@
 				<Property Name="NI.PreserveRelativePath" Type="Bool">true</Property>
 			</Item>
 			<Item Name="FPGA_96ch_FPGATarget_fpga96ch-Main.lvbitx" Type="Document" URL="../FPGA Bitfiles/FPGA_96ch_FPGATarget_fpga96ch-Main.lvbitx"/>
+			<Item Name="FPGA96chmodular3_FPGATarget_fpga96ch-Maindea_7F81622F.lvbitx" Type="Document" URL="../FPGA Bitfiles/FPGA96chmodular3_FPGATarget_fpga96ch-Maindea_7F81622F.lvbitx"/>
 		</Item>
 		<Item Name="Build Specifications" Type="Build"/>
 	</Item>
