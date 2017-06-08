@@ -14,7 +14,7 @@ If you use this code for a publication please cite as:
 
 # Contributors
 
-Xavier Michalet and Ryan Colyer contribute to earlier versions of this code.
+Xavier Michalet and Ryan Colyer contributed to earlier versions of this code.
 
 ----
 Copyright (C) 2017 The Regents of the University of California, Antonino Ingargiola and contributors.
